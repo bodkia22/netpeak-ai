@@ -1,0 +1,5 @@
+anthropic==0.109.2
+pydantic==2.13.4
+pydantic-settings==2.14.1
+pandas==2.3.3
+python-dotenv==1.2.2
