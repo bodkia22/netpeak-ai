@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Category(str, Enum):
@@ -45,3 +45,20 @@ class RequestClassification(BaseModel):
     needs_clarification: bool = Field(
         description="True, якщо запит надто розмитий, щоб брати в роботу без уточнень."
     )
+
+class IncomingRequest(BaseModel):
+    """A single raw request row read from the input CSV."""
+
+    id: str
+    channel: str
+    timestamp: str
+    raw_text: str
+
+    @field_validator("raw_text")
+    @classmethod
+    def raw_text_must_not_be_empty(cls, value: str) -> str:
+        """Reject rows whose request text is empty or whitespace-only."""
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("raw_text must not be empty")
+        return cleaned
