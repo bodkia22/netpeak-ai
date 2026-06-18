@@ -18,7 +18,7 @@ CLASSIFY_TOOL = {
 }
 
 
-def classify_request(raw_text: str) -> RequestClassification:
+def classify_request(raw_text: str, request_id: str) -> RequestClassification:
     """Send a single request's text to the LLM and return its validated classification."""
     response = client.messages.create(
         model=settings.anthropic_model,
@@ -34,4 +34,4 @@ def classify_request(raw_text: str) -> RequestClassification:
         block for block in response.content if isinstance(block, ToolUseBlock)
     )
 
-    return RequestClassification(**tool_use_block.input)
+    return RequestClassification(**tool_use_block.input, request_id=request_id)
