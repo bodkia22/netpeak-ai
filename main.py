@@ -1,7 +1,7 @@
 from src.classifier import classify_request
 from src.csv_reader import read_requests
 from src.models import RequestClassification
-from src.output_writer import write_output_json
+from src.output_writer import write_output_json, write_report
 
 INPUT_CSV_PATH = "input_requests.csv"
 
@@ -19,7 +19,7 @@ def main() -> None:
     print(f"\nClassified {len(results)} requests.")
 
     write_output_json(results, "output.json")
-
+    write_report(results, "report.md")
 
 if __name__ == "__main__":
     main()
