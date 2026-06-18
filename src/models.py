@@ -1,6 +1,7 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
+from pydantic.json_schema import SkipJsonSchema
 
 
 class Category(str, Enum):
@@ -25,6 +26,7 @@ class Priority(str, Enum):
 class RequestClassification(BaseModel):
     """Structured classification result for a single incoming request."""
 
+    request_id: SkipJsonSchema[str] = Field(default="")
     category: Category = Field(
         description="Категорія запиту з фіксованого переліку."
     )

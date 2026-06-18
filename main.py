@@ -11,7 +11,7 @@ def main() -> None:
 
     results: list[RequestClassification] = []
     for request in requests:
-        classification = classify_request(request.raw_text)
+        classification = classify_request(request.raw_text, request.id)
         results.append(classification)
         print(f"[{request.id}] {classification.category.value} | {classification.priority.value}")
 
