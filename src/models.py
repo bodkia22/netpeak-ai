@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Category(str, Enum):
@@ -25,9 +25,23 @@ class Priority(str, Enum):
 class RequestClassification(BaseModel):
     """Structured classification result for a single incoming request."""
 
-    category: Category
-    target_department: str | None
-    priority: Priority
-    short_summary: str
-    requested_actions: list[str]
-    needs_clarification: bool
+    category: Category = Field(
+        description="Категорія запиту з фіксованого переліку."
+    )
+    target_department: str | None = Field(
+        description="Відділ-замовник, якщо видно з тексту (напр. 'HR', 'продажі'). "
+        "null, якщо з тексту незрозуміло."
+    )
+    priority: Priority = Field(
+        description="Пріоритет запиту, виведений з тону й змісту тексту."
+    )
+    short_summary: str = Field(
+        description="Суть запиту одним реченням українською."
+    )
+    requested_actions: list[str] = Field(
+        description="Список конкретних дій, які просять виконати. "
+        "Порожній список, якщо конкретного прохання немає."
+    )
+    needs_clarification: bool = Field(
+        description="True, якщо запит надто розмитий, щоб брати в роботу без уточнень."
+    )
