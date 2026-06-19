@@ -41,7 +41,7 @@ async def classify_request(raw_text: str, request_id: str) -> RequestClassificat
                 (block for block in response.content if isinstance(block, ToolUseBlock)),
                 None,
             )
-            
+
             if tool_use_block is None:
                 raise ValueError(
                     f"LLM did not return a tool_use block (stop_reason={response.stop_reason})"
@@ -49,8 +49,13 @@ async def classify_request(raw_text: str, request_id: str) -> RequestClassificat
 
             return RequestClassification(**tool_use_block.input, request_id=request_id)
 
+        except ValidationError as exc:
+            last_error = exc
+            print(f"[{request_id}] Attempt {attempt}: LLM returned data that failed schema validation: {exc}")
+
         except Exception as exc:
             last_error = exc
+            print(f"[{request_id}] Attempt {attempt}: API call failed: {exc}")
 
         if attempt < settings.max_retries:
             await asyncio.sleep(2 ** attempt)
