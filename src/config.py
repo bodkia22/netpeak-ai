@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     anthropic_model: str
     max_retries: int = 3
+    input_csv_path: str = "input_requests.csv"
 
     model_config = SettingsConfigDict(
         env_file=".env",
