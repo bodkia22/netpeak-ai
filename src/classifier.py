@@ -43,8 +43,6 @@ async def classify_request(raw_text: str, request_id: str) -> RequestClassificat
 
             return RequestClassification(**tool_use_block.input, request_id=request_id)
 
-        except (ValidationError, StopIteration) as exc:
-            last_error = exc
         except Exception as exc:
             last_error = exc
 

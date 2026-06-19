@@ -17,13 +17,14 @@ def write_report(classifications: list[RequestClassification], file_path: str) -
     by_category = Counter(item.category.value for item in classifications)
     by_priority = Counter(item.priority.value for item in classifications)
     by_department = Counter(item.target_department or "не визначено" for item in classifications)
+    by_confidence = Counter(item.confidence for item in classifications)
     needs_clarification = [
         (item.request_id, item.short_summary)
         for item in classifications
         if item.needs_clarification
     ]
 
-    lines = ["# Звіт по класифікації запитів", ""]
+    lines = ["# Звіт по класифікації запитів", "", f"Всього оброблено: {len(classifications)} запитів", ""]
 
     lines.append("## По категоріях")
     for category, count in by_category.most_common():
@@ -38,6 +39,11 @@ def write_report(classifications: list[RequestClassification], file_path: str) -
     lines.append("## По відділах")
     for department, count in by_department.most_common():
         lines.append(f"- {department}: {count}")
+    lines.append("")
+
+    lines.append("## По рівню впевненості (confidence)")
+    for confidence, count in by_confidence.most_common():
+        lines.append(f"- {confidence}: {count}")
     lines.append("")
 
     lines.append(f"## Потребують уточнення ({len(needs_clarification)})")
