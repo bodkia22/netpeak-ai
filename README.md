@@ -10,13 +10,37 @@ Output:
 - `output.json` — full structured result for every request
 - `report.md` — aggregated counts by category, priority, department, confidence, and a list of requests flagged as `needs_clarification`
 
+## Output schema
+
+Each request is classified into a single `RequestClassification` object. The model produces all fields in one tool call, in the order below. Fields marked **➕** were added on top of the assignment's required set — the rationale is in [Why the schema was extended](#why-the-schema-was-extended).
+
+| Field                 | Type            | What it holds                                                                                          |
+|-----------------------|-----------------|--------------------------------------------------------------------------------------------------------|
+| `reasoning` ➕         | `str`           | Short chain-of-thought written *first*: what in the text points to this category, urgency, and whether there's enough detail to act on. |
+| `category`            | enum            | One of six fixed categories (see below).                                                               |
+| `target_department`   | `str \| null`   | Requesting department if clear from the text (e.g. `HR`, `продажі`); `null` if not.                    |
+| `priority`            | enum            | `low` / `medium` / `high`, derived from tone and content (see below).                                  |
+| `short_summary`       | `str`           | The gist of the request in one sentence (Ukrainian).                                                   |
+| `requested_actions`   | `list[str]`     | Concrete actions being asked for; empty list if there's no concrete request.                           |
+| `needs_clarification` | `bool`          | `true` if the request is too vague to take on as-is.                                                   |
+| `confidence` ➕        | enum            | `low` / `medium` / `high` — the model's certainty in *its own* classification, assessed last.          |
+
+`request_id` is also carried on the object to pair output back to input rows, but it's hidden from the LLM (`SkipJsonSchema`) so it can't influence the result.
+
 ### Categories (`category`)
 
-`автоматизація` · `інтеграція` · `звіт/аналітика` · `баг/підтримка` · `питання/консультація` · `поза скоупом`
+- **автоматизація** — a request to automate a manual, repetitive process
+- **інтеграція** — connecting or syncing different systems / tools together
+- **звіт/аналітика** — reports, dashboards, data analysis
+- **баг/підтримка** — something is broken or not working; technical help needed
+- **питання/консультація** — a general question or opinion, with no concrete build request
+- **поза скоупом** — not the AI unit's job (hardware purchases, thank-you notes, requests aimed at other departments)
 
 ### Priority (`priority`)
 
-`low` · `medium` · `high`
+- **high** — explicit urgency markers ("терміново", "горить"), a tight deadline ("сьогодні до вечора"), or a critical problem blocking work
+- **medium** — there's a deadline or moderate importance, but no signs of being critical
+- **low** — no urgency signals: a general question, an idea for later, a thank-you
 
 ## Quick start
 
@@ -75,16 +99,14 @@ src/
 
 Each module has one responsibility; `main.py` contains no business logic of its own.
 
-## Schema design
+## Why the schema was extended
 
-The fields required by the assignment (`category`, `target_department`, `priority`, `short_summary`, `requested_actions`, `needs_clarification`) are implemented as specified. Two fields were added on top of that:
+The assignment requires `category`, `target_department`, `priority`, `short_summary`, `requested_actions`, `needs_clarification`. Two more fields were added (`reasoning`, `confidence`), and here's the reasoning for each:
 
-- **`reasoning`** — a short chain-of-thought string the model fills in *before* the other fields, inside the same tool call. It isn't used programmatically, but it does two things: it nudges the model to think through category/priority before committing to a value (helps consistency on borderline requests), and it gives a human reviewer a one-line "why" without re-reading the raw text.
-- **`confidence`** (`low` / `medium` / `high`) — the model's own certainty about *its* classification, asked for last. This is a different axis from `needs_clarification`: `needs_clarification` is about the *input* being too vague to act on; `confidence` is about the *model* being unsure of its own judgment call even when the input is clear. In the report, low-confidence items are a useful secondary triage list alongside the clarification list.
+- **`reasoning`** is asked for *first*, before any verdict. It isn't used programmatically — its job is to make the model think through the classification before committing to values (which helps consistency on borderline requests), and to give a human reviewer a one-line "why" without re-reading the raw text.
+- **`confidence`** captures a different axis from `needs_clarification`. `needs_clarification` is about the *input* being too vague to act on; `confidence` is about the *model* being unsure of its own judgment even when the input is clear. In the report, low-confidence items form a useful secondary triage list next to the clarification list.
 
-`request_id` also lives on the model but is marked `SkipJsonSchema` — needed to pair output back to input rows, but irrelevant to the LLM and excluded from the tool schema so it can't influence the classification.
-
-The tool's `input_schema` is generated directly from `RequestClassification.model_json_schema()` rather than hand-written, so the Pydantic model is the single source of truth — field descriptions and actual validation can't drift apart.
+The tool's `input_schema` is generated directly from `RequestClassification.model_json_schema()` rather than hand-written, so the Pydantic model is the single source of truth — field descriptions sent to the LLM and the validation applied to its output can't drift apart.
 
 ## Validation & error handling
 
