@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -27,6 +28,12 @@ class RequestClassification(BaseModel):
     """Structured classification result for a single incoming request."""
 
     request_id: SkipJsonSchema[str] = Field(default="")
+
+    reasoning: str = Field(
+        description="Короткий хід міркувань перед визначенням категорії, пріоритету та потреби в "
+        "уточненні: що в тексті вказує саме на цю категорію, чи є ознаки терміновості, "
+        "чи запиту достатньо деталей, щоб братись у роботу без додаткових питань."
+    )
     category: Category = Field(
         description="Категорія запиту з фіксованого переліку."
     )
@@ -46,6 +53,10 @@ class RequestClassification(BaseModel):
     )
     needs_clarification: bool = Field(
         description="True, якщо запит надто розмитий, щоб брати в роботу без уточнень."
+    )
+    confidence: Literal["low", "medium", "high"] = Field(
+        description="Рівень впевненості моделі у щойно сформованій класифікації, "
+        "оцінений після визначення всіх інших полів."
     )
 
 class IncomingRequest(BaseModel):
