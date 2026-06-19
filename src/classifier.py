@@ -38,8 +38,14 @@ async def classify_request(raw_text: str, request_id: str) -> RequestClassificat
             )
 
             tool_use_block = next(
-                block for block in response.content if isinstance(block, ToolUseBlock)
+                (block for block in response.content if isinstance(block, ToolUseBlock)),
+                None,
             )
+            
+            if tool_use_block is None:
+                raise ValueError(
+                    f"LLM did not return a tool_use block (stop_reason={response.stop_reason})"
+                )
 
             return RequestClassification(**tool_use_block.input, request_id=request_id)
 
