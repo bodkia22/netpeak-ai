@@ -53,5 +53,5 @@ htmlcov/
 # OS files
 Thumbs.db
 
-output.json
-report.md
+/output.json
+/report.md
