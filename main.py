@@ -4,8 +4,7 @@ from src.classifier import classify_request
 from src.csv_reader import read_requests
 from src.models import IncomingRequest, RequestClassification
 from src.output_writer import write_output_json, write_report
-
-INPUT_CSV_PATH = "input_requests.csv"
+from src.config import settings
 MAX_CONCURRENT_REQUESTS = 20
 
 
@@ -19,7 +18,7 @@ async def _classify_one(request: IncomingRequest, semaphore: asyncio.Semaphore) 
 
 async def main() -> None:
     """Read requests from the CSV and classify them concurrently via the LLM."""
-    requests = read_requests(INPUT_CSV_PATH)
+    requests = read_requests(settings.input_csv_path)
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
     tasks: list = []
