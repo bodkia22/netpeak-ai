@@ -67,6 +67,7 @@ cp .env.example .env
 | `ANTHROPIC_API_KEY`   | Your Anthropic API key                                 | — (required)       |
 | `ANTHROPIC_MODEL`     | Model used for classification                          | `claude-sonnet-4-6` |
 | `MAX_RETRIES`         | Retry attempts per request before falling back         | `3`                 |
+| `INPUT_CSV_PATH`      | Path to the input CSV to classify                      | `input_requests.csv` |
 
 ### Run
 
@@ -75,6 +76,16 @@ python main.py
 ```
 
 Reads `input_requests.csv` from the project root, writes `output.json` and `report.md` next to it.
+
+To run against a different file, set `INPUT_CSV_PATH` in `.env`. The repo includes `input_requests_test.csv` (100 rows) for a larger stress test — point the variable at it to classify that set instead, without touching any code:
+
+```env
+INPUT_CSV_PATH=input_requests_test.csv
+```
+
+### Sample output
+
+If you'd rather not run the pipeline yourself, the `sample_output/` folder holds a committed example of both result files (`output.json` and `report.md`) from a real run on the 18-row `input_requests.csv`. This lets a reviewer see the exact shape and quality of the output without an API key or a local run. The files in the project root are regenerated on every run and stay gitignored; only the `sample_output/` copies are frozen.
 
 ### Run with Docker
 
@@ -104,7 +115,7 @@ Each module has one responsibility; `main.py` contains no business logic of its 
 The assignment requires `category`, `target_department`, `priority`, `short_summary`, `requested_actions`, `needs_clarification`. Two more fields were added (`reasoning`, `confidence`), and here's the reasoning for each:
 
 - **`reasoning`** is asked for *first*, before any verdict. It isn't used programmatically — its job is to make the model think through the classification before committing to values (which helps consistency on borderline requests), and to give a human reviewer a one-line "why" without re-reading the raw text.
-- **`confidence`** captures a different axis from `needs_clarification`. `needs_clarification` is about the *input* being too vague to act on; `confidence` is about the *model* being unsure of its own judgment even when the input is clear. In the report, low-confidence items form a useful secondary triage list next to the clarification list.
+- **`confidence`** captures a different axis from `needs_clarification`. `needs_clarification` is about the *input* being too vague to act on; `confidence` is about the *model* being unsure of its own judgment even when the input is clear. In the report, low-confidence items form a useful secondary triage list next to the clarification list. The aggregate is also a signal in itself: if a large share of a batch comes back low-confidence, that's a hint the inputs are unusual or drifting from what the prompt was tuned for — a cue to route that batch to manual review rather than trust it wholesale.
 
 The tool's `input_schema` is generated directly from `RequestClassification.model_json_schema()` rather than hand-written, so the Pydantic model is the single source of truth — field descriptions sent to the LLM and the validation applied to its output can't drift apart.
 
@@ -123,10 +134,10 @@ The tool's `input_schema` is generated directly from `RequestClassification.mode
 **Invalid LLM output** — handled via validation + retry + fallback (above). The one gap: validation errors and API errors are logged differently but still retried the same number of times the same way — a schema-validation failure isn't necessarily something a retry fixes if the model keeps making the same mistake.
 
 **Large volume** — concurrency is capped with `asyncio.Semaphore` (hardcoded to 20 in `main.py`), which protects against rate limits, but:
-- the concurrency limit, input path, and output paths are hardcoded constants, not configurable via `.env` or CLI args;
+- the concurrency limit and output paths are still hardcoded constants (the input path is configurable via `INPUT_CSV_PATH`, but those aren't);
 - there's no checkpointing — if the process crashes mid-run, the whole batch restarts from scratch, including requests that already succeeded.
 
-For the 18-row test file this is a non-issue; it would matter at hundreds or thousands of rows.
+For the 18-row test file this is a non-issue; it would matter at hundreds or thousands of rows. The included `input_requests_test.csv` (100 rows) was used to sanity-check behaviour on a larger set.
 
 **Non-determinism** — `temperature=0` plus a forced tool call (so the model can't change output *shape*) makes results stable in practice, but doesn't guarantee identical output between runs. Borderline requests (ambiguous priority, overlapping categories) can occasionally flip — this is exactly what the `confidence` field is meant to surface.
 
@@ -136,11 +147,13 @@ For the 18-row test file this is a non-issue; it would matter at hundreds or tho
 
 ## What I'd do with more time
 
-- Move hardcoded paths/limits into `.env` or CLI args.
+- **Make it provider-agnostic.** Right now the classifier is wired directly to the Anthropic SDK. I'd abstract the LLM call behind a small interface so the provider is just another setting — pick Claude, GPT, Gemini, etc. via `.env` without touching the classification logic. The Tool-Use / structured-output concept maps onto all of them, so the core schema-driven approach wouldn't change, only the adapter behind it.
+- **Benchmark models against each other.** Once the provider is swappable, I'd run the same dataset through several models (across providers and tiers), then compare them on both axes that matter: cost per run and classification quality. With a human-labelled subset as ground truth, "quality" becomes measurable (agreement rate, where each model tends to misclassify) rather than a gut call — so the final model choice is a justified trade-off between price and accuracy, not a default.
+- **Add tests.** Unit tests for `csv_reader.py` and `output_writer.py` need no API calls and are quick wins; the classifier itself could be tested with a mocked LLM response to cover the validation/retry/fallback paths.
+- **Extend the schema for richer routing — but only after understanding the real data.** The current six categories fit this sample, but a production inbox would likely want more: sub-categories, an owner/assignee, an effort estimate, links to related requests. I deliberately didn't invent these now, because doing it well means knowing where requests actually come from, what volume each channel produces, and what the AI unit needs downstream — guessing at fields without that context just adds noise. With real usage data, the schema could grow to match how requests are actually triaged.
+- Move the remaining hardcoded values (concurrency limit, output paths) into `.env` or CLI args — the input path is already configurable.
 - Replace `print()` with proper `logging` (levels, structured output).
 - Estimate token cost before running, plus a `--dry-run` flag.
-- Basic unit tests for `csv_reader.py` and `output_writer.py` (no API calls needed there).
-- Resume support — skip rows already present in a previous `output.json` on restart.
 - A lightweight human-vs-AI validation pass: have a few people manually classify the same requests and compare against the model's output, as a sanity check beyond "it ran without errors."
 
 ## A process note
