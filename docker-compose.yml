@@ -1,0 +1,6 @@
+services:
+  classifier:
+    build: .
+    env_file: .env
+    volumes:
+      - .:/app
