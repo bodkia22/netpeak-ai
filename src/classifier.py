@@ -59,6 +59,8 @@ def _fallback_classification(request_id: str, error: Exception | None) -> Reques
     """Placeholder result for a request that couldn't be classified after retries."""
     return RequestClassification(
         request_id=request_id,
+        reasoning="Класифікація не виконана: усі спроби звернення до LLM завершились помилкою.",
+        confidence="low",
         category=Category.OUT_OF_SCOPE,
         target_department=None,
         priority=Priority.LOW,
